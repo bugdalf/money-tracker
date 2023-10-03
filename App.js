@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { View, ScrollView, Text, StyleSheet, TextInput, Button, Alert } from "react-native";
+import { View, ScrollView, Text, StyleSheet, TextInput, Button, Alert, Modal, Pressable } from "react-native";
 import * as SQLite from 'expo-sqlite';
 import { useState, useEffect } from "react";
 
@@ -11,14 +11,17 @@ export default function App() {
   const [currentAmount, setCurrentAmount] = useState(undefined);
 
   const [budget, setBudget] = useState(0);
+  const [userBudget, setUserBudget] = useState(undefined);
   const [bill, setBill] = useState(0);
-  const [budgetPerDay, setBudgetPerDay] = useState(0);
   const [leftDays, setLeftDays] = useState(0);
+
+
+  const [modalVisible, setModalVisible] = useState(false);
+
 
   let today;
   let lastDay;
   let leftDaysCalculated;
-  const BUDGET = 0;
 
 
   useEffect(() => {
@@ -32,7 +35,15 @@ export default function App() {
     });
 
     db.transaction(tx => {
-      tx.executeSql('CREATE TABLE IF NOT EXISTS budget (id INTEGER PRIMARY KEY AUTOINCREMENT, amount REAL)')
+      tx.executeSql('CREATE TABLE IF NOT EXISTS budgets (id INTEGER PRIMARY KEY AUTOINCREMENT, amount REAL)')
+    });
+
+    db.transaction(tx => {
+      tx.executeSql('SELECT * FROM budgets ORDER BY id DESC LIMIT 1', null,
+        (txObj, resultSet) => {
+          setBudget(resultSet.rows._array[0].amount)
+        }
+      )
     });
 
     db.transaction(tx => {
@@ -40,13 +51,10 @@ export default function App() {
         (txObj, resultSet) => {
           setExpenses(resultSet.rows._array);
           setBill(resultSet.rows._array.reduce((acc, expense) => acc + expense.amount ,0));
-          calculateBill(resultSet.rows._array.reduce((acc, expense) => acc + expense.amount ,0))
         },
         (txObj, error) => console.log(error) 
       );
     });
-
-    setBudget(BUDGET);
     setIsLoading(false);
   }, []);
   
@@ -58,27 +66,26 @@ export default function App() {
     );
   }
 
-  const setUserBudget = () => {
-    Alert.prompt(
-      "Enter password"
-    );
-  }
-
-  const calculateBill = (bill) => {
-    const remaining = BUDGET - bill;
-    const totalBudgetPerDay = remaining / leftDaysCalculated;
-    setBudgetPerDay(totalBudgetPerDay.toFixed(2))
+  const setNewUserBudget = () => {
+    db.transaction(tx => {
+      tx.executeSql('INSERT INTO budgets (amount) VALUES (?)', [userBudget],
+        (txObj, resultSet) => {
+          setBudget(userBudget);
+          setModalVisible(false);
+        },
+        (txObj, error) => console.log(error)
+      );
+    });
   }
 
   const addExpense = () => {
     db.transaction(tx => {
-      tx.executeSql('INSERT INTO expenses (name, amount) VALUES (?, ?)', [currentName ? currentName : 'blabla', currentAmount ? currentAmount : 0],
+      tx.executeSql('INSERT INTO expenses (name, amount) VALUES (?, ?)', [currentName ? currentName : 'blabla', currentAmount ? currentAmount : 1],
         (txObj, resultSet) => {
           let existingExpenses = [...expenses];
-          existingExpenses.push({ id: resultSet.insertId, name: currentName ? currentName : 'blabla', amount: currentAmount ? currentAmount : 0});
+          existingExpenses.push({ id: resultSet.insertId, name: currentName ? currentName : 'blabla', amount: currentAmount ? currentAmount : 1});
           setExpenses(existingExpenses);
-          setBill(bill + parseFloat(currentAmount ? currentAmount : 0));
-          calculateBill(bill + parseFloat(currentAmount ? currentAmount : 0))
+          setBill(bill + parseFloat(currentAmount ? currentAmount : 1));
           setCurrentName(undefined);
           setCurrentAmount(undefined);
         },
@@ -96,26 +103,6 @@ export default function App() {
             let deletedExpense = [...expenses].find(expense => expense.id === id);
             setExpenses(existingExpenses);
             setBill(bill - parseFloat(deletedExpense.amount));
-            calculateBill(bill - parseFloat(deletedExpense.amount))
-          }
-        },
-        (txObj, error) => console.log(error)
-      );
-    });
-  };
-
-
-  // FOR IMPLEMENTING AFTER
-  const updateName = (id) => {
-    db.transaction(tx => {
-      tx.executeSql('UPDATE names SET name = ? WHERE id = ?', [currentName, id],
-        (txObj, resultSet) => {
-          if(resultSet.rowsAffected > 0) {
-            let existingNames = [...names];
-            const indexToUpdate = existingNames.findIndex(name => name.id === id);
-            existingNames[indexToUpdate].name = currentName;
-            setNames(existingNames);
-            setCurrentName(undefined);
           }
         },
         (txObj, error) => console.log(error)
@@ -139,23 +126,35 @@ export default function App() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.resume}>
-        <Text>Budget: S/. {budget}/{bill}</Text>
-        <Text>Left Days: {leftDays}</Text>
-        <Text>Budget per day: S/. {budgetPerDay}</Text>
-        <Button title="S" onPress={setUserBudget} color="#841584"/>
 
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => {
+          Alert.alert('Modal has been closed.');
+          setModalVisible(!modalVisible);
+        }}>
+        <View style={styles.centeredView}>
+          <View style={styles.modalView}>
+            <TextInput style={styles.textInput} value={userBudget} placeholder="set your personal budget" keyboardType="numeric" onChangeText={setUserBudget} />
+            <Button title="cancel" onPress={() => setModalVisible(!modalVisible)} color="red"/>
+            <Button title="save" onPress={setNewUserBudget} color="blue"/>
+          </View>
+        </View>
+      </Modal>
+
+      <View style={styles.resume}>
+        <Text>Budget: S/. {budget}</Text>
+        <Text>Bill: S/. {bill}</Text>
+        <Text>Day: S/. {((budget - bill) / leftDays).toFixed(2)}</Text>
+        <Text>Left Days: {leftDays}</Text>
+        {/* <Text>Budget per day: S/. {budgetPerDay}</Text> */}
+        <Button title="S" onPress={() => setModalVisible(true)} color="#841584"/>
       </View>
       <TextInput style={styles.textInput} value={currentName} placeholder="expense name" onChangeText={setCurrentName} />
       <TextInput style={styles.textInput} value={currentAmount} placeholder="amount" keyboardType="numeric" onChangeText={setCurrentAmount} />
       <Button title="Add Expense" onPress={addExpense} color="green"/>
-
-      {/* <FlatList
-        style={styles.flatList}
-        data={expenses}
-        keyExtractor={(expense) => expense.id}
-        renderItem={({expense}) => {console.log(expense);return(<Text>HOla</Text>)}}
-      /> */}
       <ScrollView style={styles.scrollView}>
         {showExpenses()}
       </ScrollView>
@@ -201,5 +200,31 @@ const styles = StyleSheet.create({
     borderRadius: 5, // Establece la curvatura de los bordes (opcional)
     paddingLeft: 10, // Espacio a la izquierda del texto dentro del input (opcional)
     marginBottom: 10
+  },
+  modalView: {
+    margin: 20,
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 35,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  button: {
+    borderRadius: 20,
+    padding: 10,
+    elevation: 2,
+  },
+  buttonOpen: {
+    backgroundColor: '#F194FF',
+  },
+  buttonClose: {
+    backgroundColor: '#2196F3',
   },
 })
