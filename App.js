@@ -41,7 +41,11 @@ export default function App() {
     db.transaction(tx => {
       tx.executeSql('SELECT * FROM budgets ORDER BY id DESC LIMIT 1', null,
         (txObj, resultSet) => {
-          setBudget(resultSet.rows._array[0].amount)
+          if(resultSet.rows._array.length > 0) {
+            setBudget(resultSet.rows._array[0].amount);
+          } else {
+            setBudget(0);
+          }
         }
       )
     });
