@@ -105,7 +105,7 @@ export default function App() {
     db.transaction(tx => {
       tx.executeSql('SELECT * FROM expenses', null,
         (txObj, resultSet) => {
-          setExpenses(resultSet.rows._array);
+          setExpenses(resultSet.rows._array.reverse());
           setBill(resultSet.rows._array.reduce((acc, expense) => acc + expense.amount ,0));
         },
         (txObj, error) => console.log(error) 
@@ -139,7 +139,7 @@ export default function App() {
       tx.executeSql('INSERT INTO expenses (name, amount) VALUES (?, ?)', [currentName ? currentName : 'blabla', currentAmount ? currentAmount : 1],
         (txObj, resultSet) => {
           let existingExpenses = [...expenses];
-          existingExpenses.push({ id: resultSet.insertId, name: currentName ? currentName : 'blabla', amount: currentAmount ? currentAmount : 1});
+          existingExpenses.unshift({ id: resultSet.insertId, name: currentName ? currentName : 'blabla', amount: currentAmount ? currentAmount : 1});
           setExpenses(existingExpenses);
           setBill(bill + parseFloat(currentAmount ? currentAmount : 1));
           setCurrentName(undefined);
@@ -167,12 +167,15 @@ export default function App() {
   };
 
   const showExpenses = () => {
+    // const exp = expenses.reverse();
     return expenses.map((expense, index) => {
       return (
         <View key={index} style={styles.row}>
           <Text>{expense.name}</Text>
-          <Text>S/. {expense.amount}</Text>
-          <Button title="del" onPress={() => deleteExpense(expense.id)} color={'red'}/>
+          <View style={{flexDirection: 'row', alignItems: 'center',}}>
+            <Text style={{marginRight: 5}}>S/. {expense.amount}</Text>
+            <Button title="del" onPress={() => deleteExpense(expense.id)} color={'red'}/>
+          </View>
           {/* <Button title="update" onPress={() => updateName(expense.id)}/> */}
         </View>
       );
@@ -205,7 +208,7 @@ export default function App() {
 
       <View>
         <Text>Budget: S/. {budget}</Text>
-        <Button title="S" onPress={() => setModalVisible(true)} color="#841584"/>
+        <Button title="S" onPress={() => setModalVisible(true)} color="#2C98F6"/>
       </View>
       <View style={styles.resume}>
         <Text style={{marginRight: 10}}>Bill: S/. {bill}</Text>
@@ -214,7 +217,7 @@ export default function App() {
       </View>
       <TextInput style={styles.textInput} value={currentName} placeholder="Expense name" onChangeText={setCurrentName} />
       <TextInput style={styles.textInput} value={currentAmount} placeholder="Amount" keyboardType="numeric" onChangeText={setCurrentAmount} />
-      <Button title="Add Expense" onPress={addExpense} color="green"/>
+      <Button title="                +                " onPress={addExpense} color="green"/>
       {/* <Button title="Export" onPress={exportDb} color="green"/>
       <Button title="Import" onPress={importDb} color="green"/> */}
       <ScrollView style={styles.scrollView}>
@@ -251,11 +254,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   row: {
-    width: '85%',
+    width: '78%',
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 5,
+    alignItems: 'center',
+    marginBottom: 3,
+    backgroundColor: '#fdfbff',
+    padding: 3,
+    borderRadius: 4,
   },
   textInput: {
     width: 200,
