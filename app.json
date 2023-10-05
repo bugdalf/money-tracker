@@ -21,10 +21,20 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "splash": {
+        "backgroundColor": "#ffffff",
+        "image": "./assets/splash.png"
+      },
+      "package": "com.bugdalf.moneytracker"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "6fc95060-aab7-4a50-bb87-ef4adaa3840d"
+      }
     }
   }
 }

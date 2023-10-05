@@ -1,10 +1,13 @@
 import { StatusBar } from 'expo-status-bar';
-import { View, ScrollView, Text, StyleSheet, TextInput, Button, Alert, Modal, Pressable } from "react-native";
+import { View, ScrollView, Text, StyleSheet, TextInput, Button, Alert, Modal } from "react-native";
 import * as SQLite from 'expo-sqlite';
 import { useState, useEffect } from "react";
+import * as Sharing from 'expo-sharing'
+import * as FileSystem from 'expo-file-system'
+import * as DocumentPicker from 'expo-document-picker'
 
 export default function App() {
-  const db = SQLite.openDatabase('example.db');
+  const [db, setDb] = useState(SQLite.openDatabase('example.db'));
   const [isLoading, setIsLoading] = useState(false);
   const [expenses, setExpenses] = useState([]);
   const [currentName, setCurrentName] = useState(undefined);
@@ -22,6 +25,55 @@ export default function App() {
   let today;
   let lastDay;
   let leftDaysCalculated;
+
+  // const exportDb = async () => {
+  //   if (Platform.OS === "android") {
+  //     const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+  //     if (permissions.granted) {
+  //       const base64 = await FileSystem.readAsStringAsync(
+  //         FileSystem.documentDirectory + 'SQLite/example.db',
+  //         {
+  //           encoding: FileSystem.EncodingType.Base64
+  //         }
+  //       );
+
+  //       await FileSystem.StorageAccessFramework.createFileAsync(permissions.directoryUri, 'example.db', 'application/octet-stream')
+  //       .then(async (uri) => {
+  //         await FileSystem.writeAsStringAsync(uri, base64, { encoding : FileSystem.EncodingType.Base64 });
+  //       })
+  //       .catch((e) => console.log(e));
+  //     } else {
+  //       console.log("Permission not granted");
+  //     }
+  //   } else {
+  //     await Sharing.shareAsync(FileSystem.documentDirectory + 'SQLite/example.db');
+  //   }
+  // }
+
+  // const importDb = async () => {
+  //   let result = await DocumentPicker.getDocumentAsync({
+  //     copyToCacheDirectory: true,
+  //   });
+
+  //   if(result.type === 'success') {
+  //     setIsLoading(true);
+
+  //     if(!(await FileSystem.getInfoAsync(FileSystem.documentDirectory + 'SQLite')).exists) {
+  //       await FileSystem.makeDirectoryAsync(FileSystem.documentDirectory + 'SQLite');
+  //     }
+
+  //     const base64 = await FileSystem.readAsStringAsync(
+  //       result.uri,
+  //       {
+  //         encoding: FileSystem.EncodingType.Base64
+  //       }
+  //     );
+
+  //     await FileSystem.writeAsStringAsync(FileSystem.documentDirectory + 'SQlite/example.db', base64, { encoding: FileSystem.EncodingType.Base64})
+  //     await db.closeAsync();
+  //     setDb(SQLite.openDatabase('example.db'))
+  //   }
+  // }
 
 
   useEffect(() => {
@@ -60,7 +112,7 @@ export default function App() {
       );
     });
     setIsLoading(false);
-  }, []);
+  }, [db]);
   
   if(isLoading) {
     return (
@@ -141,24 +193,30 @@ export default function App() {
         }}>
         <View style={styles.centeredView}>
           <View style={styles.modalView}>
-            <TextInput style={styles.textInput} value={userBudget} placeholder="set your personal budget" keyboardType="numeric" onChangeText={setUserBudget} />
-            <Button title="cancel" onPress={() => setModalVisible(!modalVisible)} color="red"/>
-            <Button title="save" onPress={setNewUserBudget} color="blue"/>
+            <TextInput style={styles.textInput} value={userBudget} placeholder="Set your personal budget" keyboardType="numeric" onChangeText={setUserBudget} />
+            <View style={{flexDirection: 'row'}}>
+              <Button title="save" onPress={setNewUserBudget} color="blue"/>
+              <View style={{width:20}}></View>
+              <Button title="cancel" onPress={() => setModalVisible(!modalVisible)} color="red"/>
+            </View>
           </View>
         </View>
       </Modal>
 
-      <View style={styles.resume}>
+      <View>
         <Text>Budget: S/. {budget}</Text>
-        <Text>Bill: S/. {bill}</Text>
-        <Text>Day: S/. {((budget - bill) / leftDays).toFixed(2)}</Text>
-        <Text>Left Days: {leftDays}</Text>
-        {/* <Text>Budget per day: S/. {budgetPerDay}</Text> */}
         <Button title="S" onPress={() => setModalVisible(true)} color="#841584"/>
       </View>
-      <TextInput style={styles.textInput} value={currentName} placeholder="expense name" onChangeText={setCurrentName} />
-      <TextInput style={styles.textInput} value={currentAmount} placeholder="amount" keyboardType="numeric" onChangeText={setCurrentAmount} />
+      <View style={styles.resume}>
+        <Text style={{marginRight: 10}}>Bill: S/. {bill}</Text>
+        <Text style={{marginRight: 10}}>Day: S/. {((budget - bill) / leftDays).toFixed(2)}</Text>
+        <Text style={{marginRight: 10}}>Left Days: {leftDays}</Text>
+      </View>
+      <TextInput style={styles.textInput} value={currentName} placeholder="Expense name" onChangeText={setCurrentName} />
+      <TextInput style={styles.textInput} value={currentAmount} placeholder="Amount" keyboardType="numeric" onChangeText={setCurrentAmount} />
       <Button title="Add Expense" onPress={addExpense} color="green"/>
+      {/* <Button title="Export" onPress={exportDb} color="green"/>
+      <Button title="Import" onPress={importDb} color="green"/> */}
       <ScrollView style={styles.scrollView}>
         {showExpenses()}
       </ScrollView>
@@ -170,7 +228,7 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 200,
+    paddingTop: 80,
     paddingBottom: 100,
     backgroundColor: '#fff',
     alignItems: 'center',
@@ -185,9 +243,12 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     margin: 9,
     padding: 10,
+  },
+  buttonsModal: {
+    flexDirection: 'row',
   },
   row: {
     width: '85%',
